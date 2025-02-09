@@ -26,11 +26,17 @@
         let currentSeverity = '';  // Store current severity filter
         let currentStartDate = '';  // Store current start date filter
         let currentEndDate = '';  // Store current end date filter
+        let customLogs = [];  // Store custom logs if any
 
         async function fetchLogs(severity, startDate, endDate) {
-            console.log(`Fetching logs with severity=${severity}, startDate=${startDate}, endDate=${endDate}`);
-            const response = await fetch(`/api/logs?severity=${severity}&start_date=${startDate}&end_date=${endDate}`);
-            const logs = await response.json();
+            let logs = [];
+            if (customLogs.length > 0) {
+                logs = customLogs;
+            } else {
+                console.log(`Fetching logs with severity=${severity}, startDate=${startDate}, endDate=${endDate}`);
+                const response = await fetch(`/api/logs?severity=${severity}&start_date=${startDate}&end_date=${endDate}`);
+                logs = await response.json();
+            }
             console.log('Fetched logs:', logs);
             updateChart(logs);
             updateTable(logs);
@@ -168,6 +174,31 @@
             fetchLogs('', '', '');
         }
 
+        // Handle file uploads
+        function handleFileUpload(event) {
+            const file = event.target.files[0];
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const contents = event.target.result;
+                customLogs = parseLogFile(contents);
+                fetchLogs('', '', '');
+            };
+            reader.readAsText(file);
+        }
+
+        // Parse the log file contents
+        function parseLogFile(contents) {
+            const logs = [];
+            const lines = contents.split('\n');
+            lines.forEach(line => {
+                const parts = line.split(',');
+                if (parts.length === 3) {
+                    logs.push(parts);
+                }
+            });
+            return logs;
+        }
+
         // Fetch logs and update the chart every 5 seconds using the current filter settings
         setInterval(() => fetchLogs(currentSeverity, currentStartDate, currentEndDate), 5000);
     </script>
@@ -184,6 +215,13 @@
     <section class="section">
         <div class="container dashboard-container">
             <div class="main-content">
+                <div class="field">
+                    <label class="label">Upload Log File</label>
+                    <div class="control">
+                        <input type="file" class="input" onchange="handleFileUpload(event)">
+                    </div>
+                </div>
+
                 <div class="field">
                     <label class="label">Severity</label>
                     <div class="control">
