@@ -7,10 +7,25 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bulma/0.9.3/css/bulma.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .dashboard-container {
+            display: flex;
+        }
+        .main-content {
+            flex: 3;
+        }
+        .error-log-section {
+            flex: 1;
+            margin-left: 20px;
+        }
+    </style>
     <script>
         let currentPage = 1;
         const logsPerPage = 10;
         let logChart;  // Declare a variable to hold the chart instance
+        let currentSeverity = '';  // Store current severity filter
+        let currentStartDate = '';  // Store current start date filter
+        let currentEndDate = '';  // Store current end date filter
 
         async function fetchLogs(severity, startDate, endDate) {
             console.log(`Fetching logs with severity=${severity}, startDate=${startDate}, endDate=${endDate}`);
@@ -19,6 +34,21 @@
             console.log('Fetched logs:', logs);
             updateChart(logs);
             updateTable(logs);
+            updateErrorLogs(logs);
+        }
+
+        function updateErrorLogs(logs) {
+            const errorLogContainer = document.getElementById('errorLogs');
+            errorLogContainer.innerHTML = '';  // Clear previous error logs
+
+            logs.forEach(log => {
+                if (log[1] === 'ERROR') {
+                    const errorDiv = document.createElement('div');
+                    errorDiv.className = 'notification is-danger';
+                    errorDiv.innerText = `Critical Error: ${log[2]} (Timestamp: ${log[0]})`;
+                    errorLogContainer.appendChild(errorDiv);
+                }
+            });
         }
 
         function updateTable(logs) {
@@ -120,15 +150,26 @@
         }
 
         function searchLogs() {
-            const severity = document.getElementById('severity').value;
-            const startDate = document.getElementById('startDate').value || '';
-            const endDate = document.getElementById('endDate').value || '';
-            console.log(`Search button clicked with severity=${severity}, startDate=${startDate}, endDate=${endDate}`);
-            fetchLogs(severity, startDate, endDate);
+            currentSeverity = document.getElementById('severity').value;
+            currentStartDate = document.getElementById('startDate').value || '';
+            currentEndDate = document.getElementById('endDate').value || '';
+            console.log(`Search button clicked with severity=${currentSeverity}, startDate=${currentStartDate}, endDate=${currentEndDate}`);
+            fetchLogs(currentSeverity, currentStartDate, currentEndDate);
         }
 
-        // Fetch logs and update the chart every 5 seconds
-        setInterval(() => fetchLogs('', '', ''), 5000);
+        function resetFilters() {
+            document.getElementById('severity').value = '';
+            document.getElementById('startDate').value = '';
+            document.getElementById('endDate').value = '';
+            currentSeverity = '';
+            currentStartDate = '';
+            currentEndDate = '';
+            console.log('Filters reset');
+            fetchLogs('', '', '');
+        }
+
+        // Fetch logs and update the chart every 5 seconds using the current filter settings
+        setInterval(() => fetchLogs(currentSeverity, currentStartDate, currentEndDate), 5000);
     </script>
 </head>
 <body>
@@ -141,62 +182,72 @@
     </nav>
 
     <section class="section">
-        <div class="container">
-            <div class="field">
-                <label class="label">Severity</label>
-                <div class="control">
-                    <div class="select">
-                        <select id="severity">
-                            <option value="">All</option>
-                            <option value="INFO">INFO</option>
-                            <option value="WARNING">WARNING</option>
-                            <option value="ERROR">ERROR</option>
-                        </select>
+        <div class="container dashboard-container">
+            <div class="main-content">
+                <div class="field">
+                    <label class="label">Severity</label>
+                    <div class="control">
+                        <div class="select">
+                            <select id="severity">
+                                <option value="">All</option>
+                                <option value="INFO">INFO</option>
+                                <option value="WARNING">WARNING</option>
+                                <option value="ERROR">ERROR</option>
+                            </select>
+                        </div>
                     </div>
                 </div>
-            </div>
 
-            <div class="field">
-                <label class="label">Start Date</label>
-                <div class="control">
-                    <input class="input" type="date" id="startDate">
+                <div class="field">
+                    <label class="label">Start Date</label>
+                    <div class="control">
+                        <input class="input" type="date" id="startDate">
+                    </div>
                 </div>
-            </div>
 
-            <div class="field">
-                <label class="label">End Date</label>
-                <div class="control">
-                    <input class="input" type="date" id="endDate">
+                <div class="field">
+                    <label class="label">End Date</label>
+                    <div class="control">
+                        <input class="input" type="date" id="endDate">
+                    </div>
                 </div>
-            </div>
 
-            <div class="field">
-                <div class="control">
-                    <button class="button is-primary" onclick="searchLogs()">Search</button>
+                <div class="field is-grouped">
+                    <div class="control">
+                        <button class="button is-primary" onclick="searchLogs()">Search</button>
+                    </div>
+                    <div class="control">
+                        <button class="button is-light" onclick="resetFilters()">Reset</button>
+                    </div>
                 </div>
+
+                <div class="table-container">
+                    <table class="table is-striped is-fullwidth">
+                        <thead>
+                            <tr>
+                                <th>Timestamp</th>
+                                <th>Severity</th>
+                                <th>Message</th>
+                            </tr>
+                        </thead>
+                        <tbody id="logTableBody">
+                            <!-- Log entries will be dynamically inserted here -->
+                        </tbody>
+                    </table>
+                    <nav class="pagination is-centered" role="navigation" aria-label="pagination">
+                        <ul class="pagination-list" id="pagination">
+                            <!-- Pagination items will be dynamically inserted here -->
+                        </ul>
+                    </nav>
+                </div>
+
+                <canvas id="logChart" width="400" height="200"></canvas>
             </div>
 
-            <div class="table-container">
-                <table class="table is-striped is-fullwidth">
-                    <thead>
-                        <tr>
-                            <th>Timestamp</th>
-                            <th>Severity</th>
-                            <th>Message</th>
-                        </tr>
-                    </thead>
-                    <tbody id="logTableBody">
-                        <!-- Log entries will be dynamically inserted here -->
-                    </tbody>
-                </table>
-                <nav class="pagination is-centered" role="navigation" aria-label="pagination">
-                    <ul class="pagination-list" id="pagination">
-                        <!-- Pagination items will be dynamically inserted here -->
-                    </ul>
-                </nav>
+            <div class="error-log-section">
+                <h2 class="title is-4">Error Logs</h2>
+                <div id="errorLogs"></div> <!-- Container for error logs -->
             </div>
-
-            <canvas id="logChart" width="400" height="200"></canvas>
         </div>
     </section>
 </body>
