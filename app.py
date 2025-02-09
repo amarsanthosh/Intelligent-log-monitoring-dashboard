@@ -1,5 +1,8 @@
-from flask import Flask, render_template, jsonify, request
+from flask import Flask, render_template, jsonify, request, send_file
 import sqlite3
+import csv
+import json
+import io
 
 app = Flask(__name__)
 
@@ -17,8 +20,6 @@ def fetch_logs(severity=None, start_date=None, end_date=None):
     if end_date:
         query += " AND timestamp<=?"
         params.append(end_date)
-
-    print(f"Executing query: {query} with params: {params}")
 
     conn = sqlite3.connect('logs.db')
     cursor = conn.cursor()
@@ -38,7 +39,6 @@ def get_logs():
     severity = request.args.get('severity')
     start_date = request.args.get('start_date')
     end_date = request.args.get('end_date')
-    print(f"Received filter parameters: severity={severity}, start_date={start_date}, end_date={end_date}")
     logs = fetch_logs(severity, start_date, end_date)
     return jsonify(logs)
 
@@ -47,6 +47,41 @@ def get_logs():
 def get_realtime_logs():
     logs = fetch_logs()
     return jsonify(logs)
+
+# Endpoint to export logs as CSV
+@app.route('/api/export/csv', methods=['GET'])
+def export_csv():
+    severity = request.args.get('severity')
+    start_date = request.args.get('start_date')
+    end_date = request.args.get('end_date')
+    logs = fetch_logs(severity, start_date, end_date)
+
+    # Create a CSV file in memory
+    si = io.StringIO()
+    csv_writer = csv.writer(si)
+    csv_writer.writerow(['Timestamp', 'Severity', 'Message'])
+    csv_writer.writerows(logs)
+    output = io.BytesIO()
+    output.write(si.getvalue().encode('utf-8'))
+    output.seek(0)
+
+    return send_file(output, mimetype='text/csv', as_attachment=True, download_name='logs.csv')
+
+# Endpoint to export logs as JSON
+@app.route('/api/export/json', methods=['GET'])
+def export_json():
+    severity = request.args.get('severity')
+    start_date = request.args.get('start_date')
+    end_date = request.args.get('end_date')
+    logs = fetch_logs(severity, start_date, end_date)
+
+    # Create a JSON file in memory
+    output = io.BytesIO()
+    json_data = json.dumps(logs, indent=2)
+    output.write(json_data.encode('utf-8'))
+    output.seek(0)
+
+    return send_file(output, mimetype='application/json', as_attachment=True, download_name='logs.json')
 
 if __name__ == '__main__':
     app.run(debug=True)
