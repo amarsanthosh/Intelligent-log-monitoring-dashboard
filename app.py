@@ -18,6 +18,8 @@ def fetch_logs(severity=None, start_date=None, end_date=None):
         query += " AND timestamp<=?"
         params.append(end_date)
 
+    print(f"Executing query: {query} with params: {params}")
+
     conn = sqlite3.connect('logs.db')
     cursor = conn.cursor()
     cursor.execute(query, params)
@@ -36,6 +38,7 @@ def get_logs():
     severity = request.args.get('severity')
     start_date = request.args.get('start_date')
     end_date = request.args.get('end_date')
+    print(f"Received filter parameters: severity={severity}, start_date={start_date}, end_date={end_date}")
     logs = fetch_logs(severity, start_date, end_date)
     return jsonify(logs)
 

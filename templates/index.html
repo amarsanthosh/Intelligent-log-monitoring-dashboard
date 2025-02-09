@@ -8,10 +8,56 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bulma/0.9.3/css/bulma.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
+        let currentPage = 1;
+        const logsPerPage = 10;
+        let logChart;  // Declare a variable to hold the chart instance
+
         async function fetchLogs(severity, startDate, endDate) {
+            console.log(`Fetching logs with severity=${severity}, startDate=${startDate}, endDate=${endDate}`);
             const response = await fetch(`/api/logs?severity=${severity}&start_date=${startDate}&end_date=${endDate}`);
             const logs = await response.json();
+            console.log('Fetched logs:', logs);
             updateChart(logs);
+            updateTable(logs);
+        }
+
+        function updateTable(logs) {
+            const logTableBody = document.getElementById('logTableBody');
+            logTableBody.innerHTML = '';
+
+            const startIndex = (currentPage - 1) * logsPerPage;
+            const endIndex = startIndex + logsPerPage;
+            const currentLogs = logs.slice(startIndex, endIndex);
+
+            currentLogs.forEach(log => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${log[0]}</td>
+                    <td>${log[1]}</td>
+                    <td>${log[2]}</td>
+                `;
+                logTableBody.appendChild(row);
+            });
+
+            updatePagination(logs.length);
+        }
+
+        function updatePagination(totalLogs) {
+            const totalPages = Math.ceil(totalLogs / logsPerPage);
+            const paginationContainer = document.getElementById('pagination');
+            paginationContainer.innerHTML = '';
+
+            for (let i = 1; i <= totalPages; i++) {
+                const pageItem = document.createElement('li');
+                pageItem.className = `page-item ${i === currentPage ? 'is-active' : ''}`;
+                pageItem.innerHTML = `<a class="page-link" href="#" onclick="changePage(${i})">${i}</a>`;
+                paginationContainer.appendChild(pageItem);
+            }
+        }
+
+        function changePage(page) {
+            currentPage = page;
+            searchLogs();
         }
 
         function groupLogsByTimeInterval(logs, interval) {
@@ -36,8 +82,14 @@
             const data = Object.values(groupedLogs);
 
             const ctx = document.getElementById('logChart').getContext('2d');
-            const logChart = new Chart(ctx, {
-                type: 'bar', // Change to bar chart for better visualization
+
+            // Destroy the existing chart instance if it exists
+            if (logChart) {
+                logChart.destroy();
+            }
+
+            logChart = new Chart(ctx, {
+                type: 'bar',
                 data: {
                     labels: labels,
                     datasets: [{
@@ -53,6 +105,15 @@
                         y: {
                             beginAtZero: true
                         }
+                    },
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `${context.dataset.label}: ${context.raw}`;
+                                }
+                            }
+                        }
                     }
                 }
             });
@@ -60,8 +121,9 @@
 
         function searchLogs() {
             const severity = document.getElementById('severity').value;
-            const startDate = document.getElementById('startDate').value;
-            const endDate = document.getElementById('endDate').value;
+            const startDate = document.getElementById('startDate').value || '';
+            const endDate = document.getElementById('endDate').value || '';
+            console.log(`Search button clicked with severity=${severity}, startDate=${startDate}, endDate=${endDate}`);
             fetchLogs(severity, startDate, endDate);
         }
 
@@ -112,6 +174,26 @@
                 <div class="control">
                     <button class="button is-primary" onclick="searchLogs()">Search</button>
                 </div>
+            </div>
+
+            <div class="table-container">
+                <table class="table is-striped is-fullwidth">
+                    <thead>
+                        <tr>
+                            <th>Timestamp</th>
+                            <th>Severity</th>
+                            <th>Message</th>
+                        </tr>
+                    </thead>
+                    <tbody id="logTableBody">
+                        <!-- Log entries will be dynamically inserted here -->
+                    </tbody>
+                </table>
+                <nav class="pagination is-centered" role="navigation" aria-label="pagination">
+                    <ul class="pagination-list" id="pagination">
+                        <!-- Pagination items will be dynamically inserted here -->
+                    </ul>
+                </nav>
             </div>
 
             <canvas id="logChart" width="400" height="200"></canvas>
