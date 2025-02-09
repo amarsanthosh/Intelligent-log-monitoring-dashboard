@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Log Monitoring Dashboard</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bulma/0.9.3/css/bulma.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        async function fetchLogs(severity, startDate, endDate) {
+            const response = await fetch(`/api/logs?severity=${severity}&start_date=${startDate}&end_date=${endDate}`);
+            const logs = await response.json();
+            updateChart(logs);
+        }
+
+        function groupLogsByTimeInterval(logs, interval) {
+            const groupedLogs = {};
+            logs.forEach(log => {
+                const timestamp = log[0];
+                const time = new Date(timestamp).getTime();
+                const intervalKey = Math.floor(time / interval) * interval;
+                if (!groupedLogs[intervalKey]) {
+                    groupedLogs[intervalKey] = 0;
+                }
+                groupedLogs[intervalKey]++;
+            });
+            return groupedLogs;
+        }
+
+        function updateChart(logs) {
+            const interval = 60 * 60 * 1000; // Group by hour
+            const groupedLogs = groupLogsByTimeInterval(logs, interval);
+
+            const labels = Object.keys(groupedLogs).map(key => new Date(Number(key)).toLocaleString());
+            const data = Object.values(groupedLogs);
+
+            const ctx = document.getElementById('logChart').getContext('2d');
+            const logChart = new Chart(ctx, {
+                type: 'bar', // Change to bar chart for better visualization
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Log Entries',
+                        data: data,
+                        backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                        borderColor: 'rgba(75, 192, 192, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+
+        function searchLogs() {
+            const severity = document.getElementById('severity').value;
+            const startDate = document.getElementById('startDate').value;
+            const endDate = document.getElementById('endDate').value;
+            fetchLogs(severity, startDate, endDate);
+        }
+
+        // Fetch logs and update the chart every 5 seconds
+        setInterval(() => fetchLogs('', '', ''), 5000);
+    </script>
+</head>
+<body>
+    <nav class="navbar is-dark">
+        <div class="navbar-brand">
+            <a class="navbar-item" href="#">
+                <h1 class="title has-text-white">Log Monitoring Dashboard</h1>
+            </a>
+        </div>
+    </nav>
+
+    <section class="section">
+        <div class="container">
+            <div class="field">
+                <label class="label">Severity</label>
+                <div class="control">
+                    <div class="select">
+                        <select id="severity">
+                            <option value="">All</option>
+                            <option value="INFO">INFO</option>
+                            <option value="WARNING">WARNING</option>
+                            <option value="ERROR">ERROR</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="field">
+                <label class="label">Start Date</label>
+                <div class="control">
+                    <input class="input" type="date" id="startDate">
+                </div>
+            </div>
+
+            <div class="field">
+                <label class="label">End Date</label>
+                <div class="control">
+                    <input class="input" type="date" id="endDate">
+                </div>
+            </div>
+
+            <div class="field">
+                <div class="control">
+                    <button class="button is-primary" onclick="searchLogs()">Search</button>
+                </div>
+            </div>
+
+            <canvas id="logChart" width="400" height="200"></canvas>
+        </div>
+    </section>
+</body>
+</html>
